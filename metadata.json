@@ -1,0 +1,7 @@
+{
+  "name": "Yatra in mathura",
+  "description": "Digital register for Rajdrnath Chaturvedi & Sons to manage clients, rituals, and ledger entries with AI assistance.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
