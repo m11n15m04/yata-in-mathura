@@ -24,6 +24,12 @@ export const PhoneIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
+export const WhatsAppIcon = ({ className }: { className?: string }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <path d="M3 21l1.65-3.8a9 9 0 1 1 3.4 2.9L3 21" />
+  </svg>
+);
+
 export const SparklesIcon = ({ className }: { className?: string }) => (
   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
     <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>
@@ -112,5 +118,36 @@ export const AlertTriangleIcon = ({ className }: { className?: string }) => (
     <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
     <line x1="12" y1="9" x2="12" y2="13"/>
     <line x1="12" y1="17" x2="12.01" y2="17"/>
+  </svg>
+);
+
+export const LockIcon = ({ className }: { className?: string }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+  </svg>
+);
+
+export const LogOutIcon = ({ className }: { className?: string }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+    <polyline points="16 17 21 12 16 7" />
+    <line x1="21" y1="12" x2="9" y2="12" />
+  </svg>
+);
+
+export const MusicIcon = ({ className }: { className?: string }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <path d="M9 18V5l12-2v13"/>
+    <circle cx="6" cy="18" r="3"/>
+    <circle cx="18" cy="16" r="3"/>
+  </svg>
+);
+
+export const VolumeXIcon = ({ className }: { className?: string }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+    <line x1="23" y1="9" x2="17" y2="15"/>
+    <line x1="17" y1="9" x2="23" y2="15"/>
   </svg>
 );

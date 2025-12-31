@@ -4,6 +4,13 @@ export interface Contact {
   phone: string;
   colorClass: string;
   initial: string;
+  panditId: string;
+  photo?: string; // Optional photo URL or Base64
+  bio?: string; // Biography in Hindi/English
+  sloka?: {
+    sanskrit: string;
+    meaning: string;
+  };
 }
 
 export interface ClientEntry {
@@ -19,7 +26,7 @@ export interface ClientEntry {
   timestamp: number;
 }
 
-export type ViewState = 'home' | 'add_client' | 'ledger' | 'face_search';
+export type ViewState = 'login' | 'home' | 'add_client' | 'ledger' | 'face_search';
 
 export interface BackgroundImage {
   id: string;
