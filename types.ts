@@ -1,3 +1,5 @@
+export const APP_VERSION = '1.0.0';
+
 export interface Contact {
   name: string;
   role: string;
@@ -5,8 +7,8 @@ export interface Contact {
   colorClass: string;
   initial: string;
   panditId: string;
-  photo?: string; // Optional photo URL or Base64
-  bio?: string; // Biography in Hindi/English
+  photo?: string;
+  bio?: string;
   sloka?: {
     sanskrit: string;
     meaning: string;

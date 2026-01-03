@@ -72,6 +72,9 @@ const App: React.FC = () => {
   const [showStorageModal, setShowStorageModal] = useState(false);
   const [failedEntry, setFailedEntry] = useState<ClientEntry | null>(null);
 
+  // Install State (PWA)
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+
   // Form State
   const [formData, setFormData] = useState({
     name: '',
@@ -109,6 +112,13 @@ const App: React.FC = () => {
   const printRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    // PWA Install Prompt Handler
+    const handleBeforeInstallPrompt = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+
     // Check for logged in user
     const savedPanditId = localStorage.getItem('yatra_pandit_id');
     if (savedPanditId) {
@@ -145,6 +155,10 @@ const App: React.FC = () => {
     };
     loadData();
     setQuote(QUOTES[Math.floor(Math.random() * QUOTES.length)]);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    };
   }, []);
 
   // Handle Audio Playback
@@ -192,6 +206,15 @@ const App: React.FC = () => {
       console.error("All audio sources failed.");
       setAudioError(true);
       setIsMusicPlaying(false);
+    }
+  };
+
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setDeferredPrompt(null);
     }
   };
 
@@ -400,7 +423,7 @@ const App: React.FC = () => {
         </div>
 
         {/* Login Music Control */}
-        <div className="absolute top-6 right-6 z-20">
+        <div className="absolute top-6 right-6 z-20 flex flex-col gap-2">
            <button 
               onClick={toggleMusic} 
               className={`p-3 rounded-full transition shadow-lg ${isMusicPlaying ? 'bg-orange-500 text-white' : 'bg-white text-slate-400'}`}
@@ -408,6 +431,11 @@ const App: React.FC = () => {
             >
               {isMusicPlaying ? <MusicIcon className="w-6 h-6 animate-pulse" /> : <VolumeXIcon className="w-6 h-6" />}
             </button>
+            {deferredPrompt && (
+              <button onClick={handleInstallClick} className="p-3 rounded-full bg-white text-yellow-500 shadow-lg hover:bg-yellow-50 transition" title="Install App">
+                 <DownloadIcon className="w-6 h-6" />
+              </button>
+            )}
             {audioError && <p className="text-red-500 text-[10px] font-bold mt-1 bg-white/80 px-2 py-1 rounded">Music unavailable</p>}
         </div>
 
@@ -742,6 +770,12 @@ const App: React.FC = () => {
             >
               {isMusicPlaying ? <MusicIcon className="w-6 h-6 animate-pulse" /> : <VolumeXIcon className="w-6 h-6" />}
             </button>
+            {/* Install Button (Mobile Only visible in login usually, but good here too) */}
+            {deferredPrompt && (
+              <button onClick={handleInstallClick} className="bg-white/10 p-3 rounded-full hover:bg-white/20 transition text-yellow-300" title="Install App">
+                 <DownloadIcon className="w-6 h-6" />
+              </button>
+            )}
 
             {currentUser ? (
               <button onClick={handleLogout} className="bg-white/10 p-3 rounded-full hover:bg-white/20 transition text-red-200 hover:text-white" title="Logout">
