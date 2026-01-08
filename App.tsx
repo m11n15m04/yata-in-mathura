@@ -1,17 +1,30 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { PANDIT_CONTACTS } from './constants';
-import { Contact, ClientEntry, ViewState, BackgroundImage } from './types';
+import { Contact, ClientEntry, ViewState, DivineEvent } from './types';
 import { generateRitualPlan, findMatchingFace } from './services/geminiService';
 import { dbService } from './services/db';
 import SignaturePad from './components/SignaturePad';
 import CameraCapture from './components/CameraCapture';
 import { 
   HomeIcon, PlusIcon, ClipboardIcon, PhoneIcon, SparklesIcon, 
-  ImagePlusIcon, PrintIcon, DownloadIcon, CameraIcon, FaceScanIcon, 
+  PrintIcon, DownloadIcon, CameraIcon, FaceScanIcon, 
   CheckIcon, SearchIcon, CalendarIcon, RefreshCcwIcon, TrashIcon, 
   XIcon, AlertTriangleIcon, LockIcon, LogOutIcon, MusicIcon, VolumeXIcon,
-  WhatsAppIcon
+  WhatsAppIcon, HeadphonesIcon, BellIcon, MapPinIcon, EditIcon
 } from './components/Icons';
+
+// Add type definition for the external html2pdf library
+declare global {
+  interface Window {
+    html2pdf: () => {
+      set: (opt: any) => {
+        from: (element: HTMLElement | null) => {
+          save: () => Promise<void>;
+        };
+      };
+    };
+  }
+}
 
 const QUOTES = [
   "Braj ki Raj mein hi Vaikunth hai.",
@@ -61,6 +74,19 @@ const App: React.FC = () => {
   const [loadingEntries, setLoadingEntries] = useState(true);
   const [quote, setQuote] = useState("");
   
+  // Events State
+  const [events, setEvents] = useState<DivineEvent[]>([]);
+  const [isEventModalOpen, setIsEventModalOpen] = useState(false);
+  const [editingEventId, setEditingEventId] = useState<number | null>(null);
+  const [eventForm, setEventForm] = useState({
+    title: '',
+    description: '',
+    date: '',
+    time: '',
+    location: '',
+    type: 'arti' as const
+  });
+  
   // Audio State
   const [isMusicPlaying, setIsMusicPlaying] = useState(false);
   const [audioError, setAudioError] = useState(false);
@@ -79,6 +105,9 @@ const App: React.FC = () => {
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
+    gotra: '',
+    arrivalDate: '',
+    departureDate: '',
     address: '',
     servicePlan: '',
     paymentDetails: ''
@@ -107,6 +136,9 @@ const App: React.FC = () => {
   // Print/PDF State
   const [printEntry, setPrintEntry] = useState<ClientEntry | null>(null);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  
+  // Support Contact (Manav)
+  const supportContact = PANDIT_CONTACTS.find(c => c.panditId === 'MC3') || PANDIT_CONTACTS[0];
   
   // Refs
   const printRef = useRef<HTMLDivElement>(null);
@@ -145,8 +177,12 @@ const App: React.FC = () => {
 
     const loadData = async () => {
       try {
-        const data = await dbService.getAllClients();
-        setEntries(data);
+        const [clientData, eventData] = await Promise.all([
+          dbService.getAllClients(),
+          dbService.getAllEvents()
+        ]);
+        setEntries(clientData);
+        setEvents(eventData);
       } catch (err) {
         console.warn("DB access error", err);
       } finally {
@@ -249,12 +285,76 @@ const App: React.FC = () => {
     setIsMusicPlaying(false);
   };
 
+  // --- Event Handling ---
+  const handleEditEvent = (event: DivineEvent) => {
+    setEditingEventId(event.id);
+    setEventForm({
+      title: event.title,
+      description: event.description,
+      date: event.date,
+      time: event.time,
+      location: event.location,
+      type: event.type
+    });
+    setIsEventModalOpen(true);
+  };
+
+  const handleSaveEvent = async () => {
+    if (!eventForm.title || !eventForm.date) return alert("Title and Date are required");
+    if (!currentUser) return;
+
+    const eventToSave: DivineEvent = {
+      id: editingEventId || Date.now(),
+      title: eventForm.title,
+      description: eventForm.description,
+      date: eventForm.date,
+      time: eventForm.time,
+      location: eventForm.location,
+      type: eventForm.type as any,
+      createdBy: currentUser.panditId,
+      timestamp: editingEventId ? (events.find(e => e.id === editingEventId)?.timestamp || Date.now()) : Date.now()
+    };
+
+    try {
+      await dbService.saveEvent(eventToSave);
+      // Refresh events list
+      const updatedEvents = await dbService.getAllEvents();
+      setEvents(updatedEvents);
+      setIsEventModalOpen(false);
+      setEditingEventId(null);
+      // Reset form
+      setEventForm({
+        title: '',
+        description: '',
+        date: '',
+        time: '',
+        location: '',
+        type: 'arti'
+      });
+    } catch (err) {
+      alert("Failed to save event");
+    }
+  };
+
+  const handleDeleteEvent = async (id: number) => {
+    if (!confirm("Are you sure you want to delete this event?")) return;
+    try {
+      await dbService.deleteEvent(id);
+      setEvents(events.filter(e => e.id !== id));
+    } catch (err) {
+      alert("Failed to delete event");
+    }
+  };
+
   const performSave = async () => {
     const newEntry: ClientEntry = {
       id: Date.now(),
       uniqueCode: `YM-${Date.now().toString().slice(-6)}`,
       clientName: formData.name,
       phone: formData.phone,
+      gotra: formData.gotra,
+      arrivalDate: formData.arrivalDate,
+      departureDate: formData.departureDate,
       address: formData.address,
       servicePlan: formData.servicePlan + (ritualPlan ? `\n\nSPIRITUAL PLAN:\n${ritualPlan}` : ''),
       paymentDetails: formData.paymentDetails,
@@ -342,7 +442,11 @@ const App: React.FC = () => {
   };
 
   const resetForm = () => {
-    setFormData({ name: '', phone: '', address: '', servicePlan: '', paymentDetails: '' });
+    setFormData({ 
+      name: '', phone: '', gotra: '', 
+      arrivalDate: '', departureDate: '',
+      address: '', servicePlan: '', paymentDetails: '' 
+    });
     setRitualPlan('');
     setCapturedPhoto(null);
     setSignature(null);
@@ -373,7 +477,8 @@ const App: React.FC = () => {
       html2canvas: { scale: 2 },
       jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
     };
-    // @ts-ignore
+    
+    // Using the globally declared html2pdf
     window.html2pdf().set(opt).from(printRef.current).save().then(() => setIsGeneratingPdf(false));
   };
 
@@ -547,6 +652,89 @@ const App: React.FC = () => {
       </div>
 
       {/* Modals */}
+
+      {/* Add/Edit Event Modal (Pandit Only) */}
+      {isEventModalOpen && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/70 p-4 backdrop-blur-md animate-in fade-in">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full overflow-hidden relative scale-100 animate-in zoom-in-95 p-6">
+            <button 
+              onClick={() => setIsEventModalOpen(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600"
+            >
+              <XIcon className="w-6 h-6" />
+            </button>
+            <h3 className="text-xl font-bold divine-font mb-4 text-slate-800">{editingEventId ? 'Edit Divine Event' : 'Post Divine Event'}</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Event Title</label>
+                <input 
+                  type="text" 
+                  value={eventForm.title}
+                  onChange={(e) => setEventForm({...eventForm, title: e.target.value})}
+                  className="w-full p-3 bg-slate-50 rounded-xl border border-slate-200 mt-1 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  placeholder="e.g. Yamuna Aarti"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Date</label>
+                  <input 
+                    type="date" 
+                    value={eventForm.date}
+                    onChange={(e) => setEventForm({...eventForm, date: e.target.value})}
+                    className="w-full p-3 bg-slate-50 rounded-xl border border-slate-200 mt-1 focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Time</label>
+                  <input 
+                    type="time" 
+                    value={eventForm.time}
+                    onChange={(e) => setEventForm({...eventForm, time: e.target.value})}
+                    className="w-full p-3 bg-slate-50 rounded-xl border border-slate-200 mt-1 focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Location</label>
+                <input 
+                  type="text" 
+                  value={eventForm.location}
+                  onChange={(e) => setEventForm({...eventForm, location: e.target.value})}
+                  className="w-full p-3 bg-slate-50 rounded-xl border border-slate-200 mt-1 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  placeholder="e.g. Vishram Ghat"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Description</label>
+                <textarea 
+                  value={eventForm.description}
+                  onChange={(e) => setEventForm({...eventForm, description: e.target.value})}
+                  className="w-full p-3 bg-slate-50 rounded-xl border border-slate-200 mt-1 focus:outline-none focus:ring-2 focus:ring-orange-500 h-24 resize-none"
+                  placeholder="Details about the event..."
+                />
+              </div>
+              <div className="flex gap-2">
+                {['arti', 'festival', 'katha', 'other'].map((type) => (
+                  <button
+                    key={type}
+                    onClick={() => setEventForm({...eventForm, type: type as any})}
+                    className={`flex-1 py-2 rounded-lg text-xs font-bold uppercase transition ${eventForm.type === type ? 'bg-orange-600 text-white' : 'bg-slate-100 text-slate-500'}`}
+                  >
+                    {type}
+                  </button>
+                ))}
+              </div>
+              <button 
+                onClick={handleSaveEvent}
+                className="w-full py-4 bg-orange-600 text-white font-bold rounded-xl shadow-lg shadow-orange-200 hover:bg-orange-700 transition active:scale-95"
+              >
+                {editingEventId ? 'Update Event' : 'Publish Event'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       
       {/* Pandit Profile Modal */}
       {selectedPandit && (
@@ -704,11 +892,31 @@ const App: React.FC = () => {
                   <div className="col-span-2 md:col-span-1 border-l-4 border-orange-500 pl-4">
                     <h3 className="text-xs font-bold text-slate-400 uppercase mb-1">Pilgrim Name</h3>
                     <p className="text-2xl divine-font">{printEntry.clientName}</p>
+                    {printEntry.gotra && <p className="text-sm text-slate-500 font-bold mt-1">Gotra: {printEntry.gotra}</p>}
                   </div>
                   <div className="col-span-2 md:col-span-1 border-l-4 border-indigo-500 pl-4">
                     <h3 className="text-xs font-bold text-slate-400 uppercase mb-1">Contact No.</h3>
                     <p className="text-xl">{printEntry.phone}</p>
                   </div>
+                  
+                  {/* Arrival / Departure Display in Receipt */}
+                  {(printEntry.arrivalDate || printEntry.departureDate) && (
+                    <div className="col-span-2 flex gap-8 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                      {printEntry.arrivalDate && (
+                        <div className="space-y-1">
+                          <h3 className="text-[10px] font-bold text-slate-400 uppercase">Arrival</h3>
+                          <p className="text-base font-bold text-slate-700">{new Date(printEntry.arrivalDate).toLocaleDateString()}</p>
+                        </div>
+                      )}
+                      {printEntry.departureDate && (
+                        <div className="space-y-1">
+                          <h3 className="text-[10px] font-bold text-slate-400 uppercase">Departure</h3>
+                          <p className="text-base font-bold text-slate-700">{new Date(printEntry.departureDate).toLocaleDateString()}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   <div className="col-span-2 border-l-4 border-slate-300 pl-4">
                     <h3 className="text-xs font-bold text-slate-400 uppercase mb-1">Address</h3>
                     <p className="text-lg">{printEntry.address}</p>
@@ -851,6 +1059,95 @@ const App: React.FC = () => {
                 )}
               </div>
 
+              {/* Events Section */}
+              <section className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
+                 <div className="flex justify-between items-center mb-4">
+                   <div className="flex items-center gap-2 text-indigo-900">
+                     <BellIcon className="w-6 h-6 text-orange-500 animate-pulse" />
+                     <h3 className="text-lg font-bold divine-font">Live in Braj: Divine Events</h3>
+                   </div>
+                   {currentUser && (
+                     <button 
+                       onClick={() => {
+                         setEditingEventId(null);
+                         setEventForm({
+                           title: '',
+                           description: '',
+                           date: '',
+                           time: '',
+                           location: '',
+                           type: 'arti'
+                         });
+                         setIsEventModalOpen(true);
+                       }}
+                       className="bg-indigo-50 text-indigo-600 px-3 py-1 rounded-full text-xs font-bold hover:bg-indigo-100 transition"
+                     >
+                       + Add Event
+                     </button>
+                   )}
+                 </div>
+                 
+                 {events.length === 0 ? (
+                   <p className="text-sm text-slate-400 italic text-center py-4">No upcoming events listed at the moment.</p>
+                 ) : (
+                   <div className="flex overflow-x-auto gap-4 pb-4 no-scrollbar">
+                     {events.map((event) => (
+                       <div key={event.id} className="min-w-[280px] md:min-w-[320px] bg-slate-50 rounded-2xl p-4 border border-slate-100 relative group flex-shrink-0">
+                         <div className="flex justify-between items-start mb-2">
+                           <span className={`text-[10px] font-bold px-2 py-1 rounded-md uppercase tracking-wider ${event.type === 'arti' ? 'bg-orange-100 text-orange-600' : event.type === 'festival' ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'}`}>
+                             {event.type}
+                           </span>
+                           {currentUser && (
+                             <div className="flex gap-2">
+                               <button onClick={() => handleEditEvent(event)} className="text-slate-300 hover:text-indigo-500">
+                                 <EditIcon className="w-4 h-4" />
+                               </button>
+                               <button onClick={() => handleDeleteEvent(event.id)} className="text-slate-300 hover:text-red-500">
+                                 <TrashIcon className="w-4 h-4" />
+                               </button>
+                             </div>
+                           )}
+                         </div>
+                         <h4 className="font-bold text-slate-800 divine-font text-lg mb-1">{event.title}</h4>
+                         <div className="flex items-center gap-1 text-xs text-slate-500 font-bold mb-2">
+                           <CalendarIcon className="w-3 h-3" />
+                           {new Date(event.date).toLocaleDateString()} at {event.time}
+                         </div>
+                         <div className="flex items-center gap-1 text-xs text-slate-500 font-bold mb-3">
+                           <MapPinIcon className="w-3 h-3" />
+                           {event.location}
+                         </div>
+                         <p className="text-sm text-slate-600 line-clamp-3 leading-relaxed">
+                           {event.description}
+                         </p>
+                       </div>
+                     ))}
+                   </div>
+                 )}
+              </section>
+
+              {/* Customer Care Section */}
+              <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-3xl p-6 text-white shadow-lg relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -mr-10 -mt-10"></div>
+                <div className="relative z-10 flex justify-between items-center">
+                  <div>
+                    <h3 className="text-xl font-bold divine-font mb-1">Need Assistance?</h3>
+                    <p className="text-blue-100 text-xs mb-4 max-w-[200px]">For immediate support or query regarding your Yatra, contact Manav Ji.</p>
+                    <div className="flex gap-3">
+                       <a href={`tel:${supportContact?.phone}`} className="bg-white text-blue-700 px-4 py-2 rounded-xl font-bold text-xs flex items-center gap-2 shadow-sm hover:bg-blue-50 transition">
+                         <PhoneIcon className="w-4 h-4" /> Call
+                       </a>
+                       <a href={`https://wa.me/91${supportContact?.phone}`} target="_blank" rel="noopener noreferrer" className="bg-green-500 text-white px-4 py-2 rounded-xl font-bold text-xs flex items-center gap-2 shadow-sm hover:bg-green-600 transition">
+                         <WhatsAppIcon className="w-4 h-4" /> Chat
+                       </a>
+                    </div>
+                  </div>
+                  <div className="bg-white/20 p-4 rounded-2xl backdrop-blur-sm">
+                    <HeadphonesIcon className="w-10 h-10 text-white" />
+                  </div>
+                </div>
+              </div>
+
               {/* Family Contacts */}
               <section>
                 <h3 className="text-lg font-bold divine-font mb-4 flex items-center gap-2">
@@ -958,6 +1255,39 @@ const App: React.FC = () => {
                 </div>
 
                 <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Gotra (Optional)</label>
+                  <input 
+                    type="text" 
+                    className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-orange-500 outline-none transition"
+                    placeholder="e.g. Bharadwaj"
+                    value={formData.gotra}
+                    onChange={e => setFormData({...formData, gotra: e.target.value})}
+                  />
+                </div>
+
+                {/* Date Selection */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Date of Arrival</label>
+                    <input 
+                      type="date" 
+                      className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-orange-500 outline-none transition text-sm font-bold text-slate-700"
+                      value={formData.arrivalDate}
+                      onChange={e => setFormData({...formData, arrivalDate: e.target.value})}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Date of Departure</label>
+                    <input 
+                      type="date" 
+                      className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-orange-500 outline-none transition text-sm font-bold text-slate-700"
+                      value={formData.departureDate}
+                      onChange={e => setFormData({...formData, departureDate: e.target.value})}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Home Town / State</label>
                   <input 
                     type="text" 
@@ -991,7 +1321,7 @@ const App: React.FC = () => {
                     </button>
                   </div>
                   {ritualPlan && (
-                    <div className="p-4 bg-white rounded-2xl border border-indigo-50 text-sm text-slate-600 italic leading-relaxed animate-in fade-in">
+                    <div className="p-4 bg-white rounded-2xl border border-indigo-50 text-sm text-slate-600 italic leading-relaxed animate-in fade-in whitespace-pre-wrap">
                       {ritualPlan}
                     </div>
                   )}

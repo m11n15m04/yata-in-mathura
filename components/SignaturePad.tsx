@@ -25,14 +25,19 @@ const SignaturePad: React.FC<SignaturePadProps> = ({ onSave, className }) => {
     }
   }, []);
 
-  const getCoordinates = (event: React.MouseEvent | React.TouchEvent) => {
+  const getCoordinates = (event: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
     if (!canvasRef.current) return { x: 0, y: 0 };
     const canvas = canvasRef.current;
     const rect = canvas.getBoundingClientRect();
     
     let clientX, clientY;
     
-    if ('touches' in event) {
+    // Type guard to distinguish TouchEvent from MouseEvent
+    const isTouchEvent = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>): e is React.TouchEvent<HTMLCanvasElement> => {
+      return 'touches' in e;
+    };
+    
+    if (isTouchEvent(event)) {
       clientX = event.touches[0].clientX;
       clientY = event.touches[0].clientY;
     } else {
@@ -46,8 +51,10 @@ const SignaturePad: React.FC<SignaturePadProps> = ({ onSave, className }) => {
     };
   };
 
-  const startDrawing = (e: React.MouseEvent | React.TouchEvent) => {
-    e.preventDefault(); // Prevent scrolling on touch
+  const startDrawing = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    // Prevent scrolling on touch
+    if (e.cancelable) e.preventDefault(); 
+    
     setIsDrawing(true);
     const { x, y } = getCoordinates(e);
     const ctx = canvasRef.current?.getContext('2d');
@@ -57,9 +64,10 @@ const SignaturePad: React.FC<SignaturePadProps> = ({ onSave, className }) => {
     }
   };
 
-  const draw = (e: React.MouseEvent | React.TouchEvent) => {
+  const draw = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
     if (!isDrawing) return;
-    e.preventDefault();
+    if (e.cancelable) e.preventDefault();
+    
     const { x, y } = getCoordinates(e);
     const ctx = canvasRef.current?.getContext('2d');
     if (ctx) {

@@ -12,20 +12,21 @@ export const generateRitualPlan = async (ritualName: string): Promise<string> =>
     Context: A pilgrim (Yatri) is visiting the holy Braj region (Mathura, Vrindavan, Govardhan, Barsana, Gokul, Nandgaon).
     User Input: "${ritualName}"
 
-    Your Task:
-    1. If the input is a specific ritual (e.g., "Yamuna Pujan", "Chappan Bhog", "Dandavat Parikrama", "Vrindavan Parikrama"):
-       - Explain the spiritual significance in Braj.
-       - Provide a step-by-step 'Vidhi' (process).
-       - List the required 'Samagri' (materials) with precision.
+    Your Task is to provide a response in two distinct sections:
 
-    2. If the input is a travel plan (e.g., "3 days trip", "Main Temples Visit"):
-       - Create a logical itinerary starting from Mathura.
-       - Mention key temples: Krishna Janmabhoomi, Dwarkadhish, Banke Bihari, Radha Vallabh, Prem Mandir, ISKCON, Nidhivan.
-       - Include tips on Aarti timings and local customs.
+    SECTION 1: THE REQUESTED VIDHI OR ITINERARY
+    - If input is a Ritual (e.g., "Yamuna Pujan"): Explain significance, Step-by-step Vidhi, and exact Samagri list.
+    - If input is a Trip/Plan (e.g., "2 days visit"): Create a logical flow of temples/locations with best timings.
 
-    3. Tone: Traditional, deeply respectful, professional, and knowledgeable.
-    4. Format: Plain text, clear bullet points, no markdown bolding (e.g., use "1." instead of "**1.**"). 
-    5. Language: English, but use traditional Sanskrit/Hindi terms where appropriate (Vidhi, Samagri, Darshan).
+    SECTION 2: DIVINE RECOMMENDATIONS (Proactive Suggestions)
+    - Based on the user's input, suggest 2-3 complementary rituals, nearby "hidden gems", or specific spiritual actions they might not know about.
+    - Example: If visiting Banke Bihari, suggest Nidhivan or Radha Vallabh.
+    - Example: If doing Govardhan Parikrama, suggest visiting Radha Kund or doing Dandavat at a specific point.
+    - Explain *why* these additions are spiritually beneficial.
+
+    Tone: Traditional, deeply respectful, professional, and knowledgeable.
+    Format: Plain text with clear headers (e.g., "--- VIDHI ---", "--- SUGGESTIONS ---"). Use bullet points. 
+    Language: English, but use traditional Sanskrit/Hindi terms where appropriate (Vidhi, Samagri, Darshan, Punya).
     `;
 
     const response = await ai.models.generateContent({

@@ -1,9 +1,10 @@
-import { ClientEntry, BackgroundImage } from '../types';
+import { ClientEntry, BackgroundImage, DivineEvent } from '../types';
 
 const DB_NAME = 'YatraDB';
-const DB_VERSION = 2;
+const DB_VERSION = 3; // Incremented for events store
 const STORE_NAME = 'clients';
 const BG_STORE_NAME = 'backgrounds';
+const EVENTS_STORE_NAME = 'events';
 
 // Open the database
 const openDB = (): Promise<IDBDatabase> => {
@@ -30,6 +31,9 @@ const openDB = (): Promise<IDBDatabase> => {
         }
         if (!db.objectStoreNames.contains(BG_STORE_NAME)) {
           db.createObjectStore(BG_STORE_NAME, { keyPath: 'id' });
+        }
+        if (!db.objectStoreNames.contains(EVENTS_STORE_NAME)) {
+          db.createObjectStore(EVENTS_STORE_NAME, { keyPath: 'id' });
         }
       };
     } catch (e) {
@@ -91,6 +95,74 @@ export const dbService = {
       try {
         const transaction = db.transaction(STORE_NAME, 'readwrite');
         const store = transaction.objectStore(STORE_NAME);
+        const request = store.delete(id);
+
+        transaction.oncomplete = () => resolve();
+        transaction.onerror = () => reject(transaction.error);
+      } catch (err) {
+        reject(err);
+      }
+    });
+  },
+
+  // --- Events Management ---
+
+  getAllEvents: async (): Promise<DivineEvent[]> => {
+    try {
+      const db = await openDB();
+      return new Promise((resolve, reject) => {
+        if (!db.objectStoreNames.contains(EVENTS_STORE_NAME)) {
+          resolve([]);
+          return;
+        }
+        const transaction = db.transaction(EVENTS_STORE_NAME, 'readonly');
+        const store = transaction.objectStore(EVENTS_STORE_NAME);
+        const request = store.getAll();
+
+        request.onsuccess = () => {
+          // Sort by date (nearest first)
+          const results = request.result as DivineEvent[];
+          if (results) {
+            // Filter out past events (optional, but good for UX - showing only >= yesterday)
+            const yesterday = new Date();
+            yesterday.setDate(yesterday.getDate() - 1);
+            const activeEvents = results.filter(e => new Date(e.date) >= yesterday);
+            activeEvents.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+            resolve(activeEvents);
+          } else {
+            resolve([]);
+          }
+        };
+        request.onerror = () => reject(request.error);
+      });
+    } catch (e) {
+      console.warn("Failed to load events", e);
+      return [];
+    }
+  },
+
+  saveEvent: async (event: DivineEvent): Promise<void> => {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      try {
+        const transaction = db.transaction(EVENTS_STORE_NAME, 'readwrite');
+        const store = transaction.objectStore(EVENTS_STORE_NAME);
+        const request = store.put(event);
+
+        transaction.oncomplete = () => resolve();
+        transaction.onerror = () => reject(transaction.error);
+      } catch (err) {
+        reject(err);
+      }
+    });
+  },
+
+  deleteEvent: async (id: number): Promise<void> => {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      try {
+        const transaction = db.transaction(EVENTS_STORE_NAME, 'readwrite');
+        const store = transaction.objectStore(EVENTS_STORE_NAME);
         const request = store.delete(id);
 
         transaction.oncomplete = () => resolve();

@@ -20,11 +20,26 @@ export interface ClientEntry {
   uniqueCode: string;
   clientName: string;
   phone: string;
+  gotra?: string;
+  arrivalDate?: string;
+  departureDate?: string;
   address: string;
   servicePlan: string;
   paymentDetails: string;
   clientPhoto?: string;
   signatureImage: string | null;
+  timestamp: number;
+}
+
+export interface DivineEvent {
+  id: number;
+  title: string;
+  description: string;
+  date: string;
+  time: string;
+  location: string;
+  type: 'arti' | 'festival' | 'katha' | 'other';
+  createdBy: string;
   timestamp: number;
 }
 
